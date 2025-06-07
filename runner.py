@@ -7,20 +7,26 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import time
 import json
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 
-def get_flaresolverr_session(url):
+def get_flaresolverr_session(url, retries=3):
     """Request a session from FlareSolverr to bypass Cloudflare."""
-    flaresolverr_url = "http://localhost:8191/v1"
+    flaresolverr_url = "http://flaresolverr:8191/v1"
     payload = {
         "cmd": "request.get",
         "url": url,
-        "maxTimeout": 120000,
+        "maxTimeout": 180000,  # Increased to 180 seconds
         "returnOnlyCookies": False,
         "render": "full"
     }
     
+    session = requests.Session()
+    retries = Retry(total=retries, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+    session.mount("http://", HTTPAdapter(max_retries=retries))
+    
     try:
-        response = requests.post(flaresolverr_url, json=payload, timeout=120)
+        response = session.post(flaresolverr_url, json=payload, timeout=180)
         response.raise_for_status()
         data = response.json()
         
@@ -37,6 +43,12 @@ def get_flaresolverr_session(url):
 def click_team_link(url):
     driver = None
     try:
+        # Get FlareSolverr session
+        solution = get_flaresolverr_session(url)
+        if not solution:
+            print("Could not bypass Cloudflare with FlareSolverr")
+            return None
+
         # Set up Chrome options
         options = Options()
         options.add_argument("--headless=new")
@@ -44,16 +56,37 @@ def click_team_link(url):
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--enable-unsafe-swiftshader")
-
-        # Configure Selenium to use FlareSolverr as a proxy
-        options.add_argument('--proxy-server=http://localhost:8191')
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option("useAutomationExtension", False)
+        options.add_argument(f"--user-agent={solution['userAgent']}")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--start-maximized")
 
         # Initialize the driver
         driver = webdriver.Chrome(options=options)
         driver.set_page_load_timeout(60)
         driver.set_script_timeout(60)
 
-        # Navigate to the page through FlareSolverr
+        # Set cookies
+        driver.get("https://www.hltv.org")  # Navigate to domain first
+        for cookie in solution.get("cookies", []):
+            selenium_cookie = {
+                "name": cookie["name"],
+                "value": cookie["value"],
+                "domain": cookie.get("domain", ".hltv.org"),
+                "path": cookie.get("path", "/"),
+                "secure": cookie.get("secure", True),
+                "httpOnly": cookie.get("httpOnly", False),
+                "sameSite": cookie.get("sameSite", "Lax")
+            }
+            try:
+                driver.add_cookie(selenium_cookie)
+                print(f"Added cookie: {cookie['name']}")
+            except Exception as e:
+                print(f"Failed to add cookie {cookie['name']}: {e}")
+
+        # Navigate to the page
         driver.get(url)
 
         # Wait for JavaScript to load
