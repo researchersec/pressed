@@ -14,7 +14,9 @@ def get_flaresolverr_session(url):
     payload = {
         "cmd": "request.get",
         "url": url,
-        "maxTimeout": 120000  # Increased to 120 seconds
+        "maxTimeout": 120000,
+        "returnOnlyCookies": False,
+        "render": "full"
     }
     
     try:
@@ -35,12 +37,6 @@ def get_flaresolverr_session(url):
 def click_team_link(url):
     driver = None
     try:
-        # Get FlareSolverr session
-        solution = get_flaresolverr_session(url)
-        if not solution:
-            print("Could not bypass Cloudflare with FlareSolverr")
-            return None
-
         # Set up Chrome options
         options = Options()
         options.add_argument("--headless=new")
@@ -48,35 +44,19 @@ def click_team_link(url):
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--enable-unsafe-swiftshader")
-        options.add_argument(f"--user-agent={solution['userAgent']}")
+
+        # Configure Selenium to use FlareSolverr as a proxy
+        options.add_argument('--proxy-server=http://localhost:8191')
 
         # Initialize the driver
         driver = webdriver.Chrome(options=options)
-        driver.set_page_load_timeout(60)  # Increased timeout
+        driver.set_page_load_timeout(60)
         driver.set_script_timeout(60)
 
-        # Set cookies from FlareSolverr
-        driver.get("https://www.hltv.org")  # Navigate to domain first
-        for cookie in solution.get("cookies", []):
-            selenium_cookie = {
-                "name": cookie["name"],
-                "value": cookie["value"],
-                "domain": cookie.get("domain", ".hltv.org"),
-                "path": cookie.get("path", "/"),
-                "secure": cookie.get("secure", True),
-                "httpOnly": cookie.get("httpOnly", False),
-                "sameSite": cookie.get("sameSite", "Lax")
-            }
-            try:
-                driver.add_cookie(selenium_cookie)
-                print(f"Added cookie: {cookie['name']}")
-            except Exception as e:
-                print(f"Failed to add cookie {cookie['name']}: {e}")
-
-        # Navigate to the page
+        # Navigate to the page through FlareSolverr
         driver.get(url)
 
-        # Wait for JavaScript to load (check for document.readyState)
+        # Wait for JavaScript to load
         WebDriverWait(driver, 60).until(
             lambda d: d.execute_script("return document.readyState") == "complete"
         )
