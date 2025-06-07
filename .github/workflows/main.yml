@@ -16,8 +16,9 @@ jobs:
         ports:
           - 8191:8191
         env:
-          LOG_LEVEL: debug  # Increased logging for diagnostics
+          LOG_LEVEL: debug
           CAPTCHA_SOLVER: none
+        options: --health-cmd "curl -s http://localhost:8191 || exit 1" --health-interval 10s --health-timeout 5s --health-retries 3
 
     steps:
     - name: Checkout code
@@ -36,11 +37,17 @@ jobs:
 
     - name: Wait for FlareSolverr to be ready
       run: |
-        timeout 30s bash -c "until curl -s http://flaresolverr:8191 > /dev/null; do echo 'Waiting for FlareSolverr...'; sleep 2; done"
+        timeout 60s bash -c "until curl -s http://flaresolverr:8191 > /dev/null; do echo 'Waiting for FlareSolverr...'; sleep 2; done" || {
+          echo "FlareSolverr failed to start. Checking container logs..."
+          docker logs $(docker ps -q -f name=flaresolverr)
+          exit 1
+        }
         echo "FlareSolverr is up!"
 
     - name: Set up Chrome
       uses: browser-actions/setup-chrome@v1
+      with:
+        chrome-version: 'latest'
 
     - name: Run
       run: python runner.py
