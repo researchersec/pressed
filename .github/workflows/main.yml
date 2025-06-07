@@ -37,7 +37,7 @@ jobs:
 
     - name: Wait for FlareSolverr to be ready
       run: |
-        timeout 60s bash -c "until curl -s http://flaresolverr:8191 > /dev/null; do echo 'Waiting for FlareSolverr...'; sleep 2; done" || {
+        timeout 60s bash -c "until curl -s http://localhost:8191 > /dev/null; do echo 'Waiting for FlareSolverr...'; sleep 2; done" || {
           echo "FlareSolverr failed to start. Checking container logs..."
           docker logs $(docker ps -q -f name=flaresolverr)
           exit 1
