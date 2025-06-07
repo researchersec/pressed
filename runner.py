@@ -40,6 +40,9 @@ def click_team_link(url):
             '//div[@class="pick-a-winner-team team2 canvote" and @data-pick-a-winner-team="2"]'
         )))
 
+        print("=== Page Source for Debugging ===")
+        print(soup.prettify())
+
         # Click the element
         team_link.click()
 
