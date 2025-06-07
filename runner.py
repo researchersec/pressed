@@ -24,6 +24,15 @@ def click_team_link(url):
         # Navigate to the page
         driver.get(url)
 
+        # Get and print the page source for debugging
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        print("=== Page Source for Debugging ===")
+        print(soup.prettify())
+
+        # Save page source to a file for further inspection
+        with open("debug_page.html", "w", encoding="utf-8") as f:
+            f.write(soup.prettify())
+
         # Wait for the element to be clickable
         wait = WebDriverWait(driver, 10)
         team_link = wait.until(EC.element_to_be_clickable((
@@ -38,10 +47,10 @@ def click_team_link(url):
         time.sleep(2)
 
         # Get the page source after clicking
-        soup = BeautifulSoup(driver.page_source, "html.parser")
+        soup_after_click = BeautifulSoup(driver.page_source, "html.parser")
 
         # Return the soup for further processing if needed
-        return soup
+        return soup_after_click
 
     except Exception as e:
         print(f"An error occurred: {e}")
