@@ -18,8 +18,8 @@ def click_team_link(url):
 
         # Initialize the driver
         driver = webdriver.Chrome(options=options)
-        driver.set_page_load_timeout(15)
-        driver.set_script_timeout(15)
+        driver.set_page_load_timeout(30)
+        driver.set_script_timeout(30)
 
         # Navigate to the page
         driver.get(url)
@@ -34,7 +34,7 @@ def click_team_link(url):
             f.write(soup.prettify())
 
         # Wait for the element to be clickable
-        wait = WebDriverWait(driver, 10)
+        wait = WebDriverWait(driver, 40)
         team_link = wait.until(EC.element_to_be_clickable((
             By.XPATH, 
             '//div[@class="pick-a-winner-team team2 canvote" and @data-pick-a-winner-team="2"]'
