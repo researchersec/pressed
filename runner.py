@@ -12,7 +12,7 @@ from requests.adapters import HTTPAdapter
 
 def get_flaresolverr_session(url, retries=3):
     """Request a session from FlareSolverr to bypass Cloudflare."""
-    flaresolverr_url = "http://flaresolverr:8191/v1"
+    flaresolverr_url = "http://localhost:8191/v1"
     payload = {
         "cmd": "request.get",
         "url": url,
