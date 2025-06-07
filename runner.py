@@ -14,15 +14,16 @@ def get_flaresolverr_session(url):
     payload = {
         "cmd": "request.get",
         "url": url,
-        "maxTimeout": 60000  # 60 seconds
+        "maxTimeout": 120000  # Increased to 120 seconds
     }
     
     try:
-        response = requests.post(flaresolverr_url, json=payload, timeout=60)
+        response = requests.post(flaresolverr_url, json=payload, timeout=120)
         response.raise_for_status()
         data = response.json()
         
         if data.get("status") == "ok":
+            print("FlareSolverr solution received:", json.dumps(data.get("solution"), indent=2))
             return data.get("solution")
         else:
             print(f"FlareSolverr error: {data.get('message')}")
@@ -51,13 +52,12 @@ def click_team_link(url):
 
         # Initialize the driver
         driver = webdriver.Chrome(options=options)
-        driver.set_page_load_timeout(30)
-        driver.set_script_timeout(30)
+        driver.set_page_load_timeout(60)  # Increased timeout
+        driver.set_script_timeout(60)
 
         # Set cookies from FlareSolverr
-        driver.get("https://www.hltv.org")  # Navigate to domain first to set cookies
+        driver.get("https://www.hltv.org")  # Navigate to domain first
         for cookie in solution.get("cookies", []):
-            # Convert FlareSolverr cookie format to Selenium
             selenium_cookie = {
                 "name": cookie["name"],
                 "value": cookie["value"],
@@ -69,30 +69,44 @@ def click_team_link(url):
             }
             try:
                 driver.add_cookie(selenium_cookie)
+                print(f"Added cookie: {cookie['name']}")
             except Exception as e:
                 print(f"Failed to add cookie {cookie['name']}: {e}")
 
         # Navigate to the page
         driver.get(url)
 
+        # Wait for JavaScript to load (check for document.readyState)
+        WebDriverWait(driver, 60).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+
         # Get and print the page source for debugging
         soup = BeautifulSoup(driver.page_source, "html.parser")
         print("=== Page Source for Debugging ===")
-        print(soup.prettify())
+        print(soup.prettify()[:2000])  # Truncated for brevity
 
-        # Save page source to a file for further inspection
+        # Save page source to a file
         with open("debug_page.html", "w", encoding="utf-8") as f:
             f.write(soup.prettify())
 
+        # Check if the target element exists
+        elements = driver.find_elements(By.XPATH, '//div[contains(@class, "pick-a-winner-team") and contains(@class, "team2") and contains(@class, "canvote")]')
+        if not elements:
+            print("No matching elements found for XPath")
+            return None
+
         # Wait for the element to be clickable
-        wait = WebDriverWait(driver, 40)
+        wait = WebDriverWait(driver, 60)
         team_link = wait.until(EC.element_to_be_clickable((
             By.XPATH,
-            '//div[@class="pick-a-winner-team team2 canvote" and @data-pick-a-winner-team="2"]'
+            '//div[contains(@class, "pick-a-winner-team") and contains(@class, "team2") and contains(@class, "canvote")]'
         )))
 
-        # Click the element
-        team_link.click()
+        # Scroll to element and click using JavaScript
+        driver.execute_script("arguments[0].scrollIntoView(true);", team_link)
+        driver.execute_script("arguments[0].click();", team_link)
+        print("Clicked the team link")
 
         # Wait briefly to ensure the click action completes
         time.sleep(2)
@@ -100,7 +114,10 @@ def click_team_link(url):
         # Get the page source after clicking
         soup_after_click = BeautifulSoup(driver.page_source, "html.parser")
 
-        # Return the soup for further processing
+        # Save page source after click
+        with open("debug_page_after_click.html", "w", encoding="utf-8") as f:
+            f.write(soup_after_click.prettify())
+
         return soup_after_click
 
     except Exception as e:
